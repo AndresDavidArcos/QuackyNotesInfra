@@ -49,7 +49,7 @@ provider "aws" {
 
 
 resource "aws_key_pair" "production_key" {
-  key_name   = "staging-key"
+  key_name   = "production-key"
   public_key = var.production_public_key
 
   tags = {
