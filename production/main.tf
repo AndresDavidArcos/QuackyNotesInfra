@@ -1,4 +1,4 @@
-variable "staging_public_key" {
+variable "production_public_key" {
   description = "Staging environment public key value"
   type        = string
 }
