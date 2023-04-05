@@ -1,6 +1,24 @@
+variable "staging_public_key" {
+  description = "Staging environment public key value"
+  type        = string
+}
+
+variable "base_ami_id" {
+  description = "Base AMI ID"
+  type        = string
+}
+
+variable "access_key" {
+  type        = string
+}
+
+variable "secret_key" {
+  type        = string
+}
+
 terraform {
   backend "remote" {
-    organization = "glich-stream"
+    organization = "terrastates"
 
     workspaces {
       name = "QuackyNotesInfra"
@@ -23,28 +41,12 @@ terraform {
 }
 
 provider "aws" {
-  profile = "default"
-  region  = "eu-west-1"
+  region  = "eu-east-1"
+  access_key = var.access_key
+  secret_key = var.secret_key
 }
 
-variable "staging_public_key" {
-  description = "Staging environment public key value"
-  type        = string
-}
 
-variable "base_ami_id" {
-  description = "Base AMI ID"
-  type        = string
-}
-
-resource "random_id" "server" {
-  keepers = {
-    # Generate a new id each time we switch to a new AMI id
-    ami_id = "${var.base_ami_id}"
-  }
-
-  byte_length = 8
-}
 
 resource "aws_key_pair" "staging_key" {
   key_name   = "staging-key"
@@ -55,21 +57,35 @@ resource "aws_key_pair" "staging_key" {
   }
 }
 
-# This is the main staging environment. We will deploy to this the changes
-# to the main branch before deploying to the production environment.
-resource "aws_instance" "staging_cicd_demo" {
-  # Read the AMI id "through" the random_id resource to ensure that
-  # both will change together.
-  ami                    = random_id.server.keepers.ami_id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = ["sg-0d2411db69a112a30"]
-  key_name               = aws_key_pair.staging_key.key_name
+resource "aws_security_group" "staging_rules" {
+  name        = "staging_rules"
+
+  ingress {
+    description = "SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+  description = "HTTP access"
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
 
   tags = {
-    "Name" = "staging_cicd_demo-${random_id.server.hex}"
+    Name = "allow_tls"
   }
 }
 
-output "staging_dns" {
-  value = aws_instance.staging_cicd_demo.public_dns
-}
